@@ -1,12 +1,501 @@
-{
-  "name": "gift-sync",
-  "pages_build_output_dir": ".",
-  "compatibility_date": "2024-09-23",
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "gift-db",
-      "database_id": "刚才返回的id"
-    }
-  ]
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我们的礼物清单</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --pink: #ff6b8b;
+    --pink-light: #ffe4ea;
+    --pink-dark: #e84d70;
+    --bg: #fdf6f8;
+    --card: #ffffff;
+    --text: #2d2d3a;
+    --text-sub: #8a8a99;
+    --line: #f0e6ea;
+    --green: #4caf50;
+    --amber: #ff9800;
+    --blue: #5b8def;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 90px;
+    padding-top: env(safe-area-inset-top);
+  }
+  /* 顶部 */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
+    color: #fff; padding: 16px 18px;
+    box-shadow: 0 2px 12px rgba(232,77,112,.25);
+  }
+  .topbar h1 { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .topbar p { font-size: 12px; opacity: .9; margin-top: 3px; }
+  .top-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .btn-ghost {
+    background: rgba(255,255,255,.22); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 20px; font-size: 12px;
+  }
+  /* 统计条 */
+  .stats {
+    display: flex; background: var(--card); padding: 12px 0;
+    border-bottom: 1px solid var(--line); margin-bottom: 12px;
+  }
+  .stat { flex: 1; text-align: center; }
+  .stat .num { font-size: 20px; font-weight: 700; color: var(--pink-dark); }
+  .stat .lbl { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+  .stat + .stat { border-left: 1px solid var(--line); }
+  /* 列表 */
+  .list { padding: 0 14px; }
+  .empty {
+    text-align: center; color: var(--text-sub); padding: 60px 20px;
+    font-size: 14px; line-height: 1.8;
+  }
+  .empty .big { font-size: 48px; margin-bottom: 12px; }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 12px;
+    margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    position: relative;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .thumb {
+    width: 64px; height: 64px; border-radius: 10px; object-fit: cover;
+    background: var(--pink-light); flex-shrink: 0; border: 1px solid var(--line);
+  }
+  .card-info { flex: 1; min-width: 0; }
+  .card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card-name input {
+    width: 100%; border: 1px solid var(--pink); border-radius: 6px;
+    padding: 3px 6px; font-size: 15px; font-weight: 600; outline: none;
+  }
+  .card-link { font-size: 11px; color: var(--blue); word-break: break-all; margin-bottom: 6px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
+    border: none; color: #fff;
+  }
+  .badge.status-0 { background: var(--text-sub); }
+  .badge.status-1 { background: var(--amber); }
+  .badge.status-2 { background: var(--green); }
+  .badge.status-3 { background: var(--blue); }
+  .price-tag {
+    font-size: 12px; color: var(--pink-dark); font-weight: 600;
+    background: var(--pink-light); padding: 2px 8px; border-radius: 10px;
+    display: inline-block; margin-top: 6px;
+  }
+  .del-btn {
+    position: absolute; top: 8px; right: 8px; background: none; border: none;
+    color: var(--text-sub); font-size: 18px; padding: 4px 8px;
+  }
+  /* 批注区 */
+  .comments {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+  }
+  .comments-title { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+  .cmt {
+    background: var(--bg); border-radius: 10px; padding: 8px 10px;
+    margin-bottom: 6px; font-size: 13px; position: relative;
+  }
+  .cmt-who { font-weight: 600; color: var(--pink-dark); font-size: 12px; }
+  .cmt-time { font-size: 10px; color: var(--text-sub); margin-left: 6px; }
+  .cmt-body { margin-top: 2px; line-height: 1.5; word-break: break-word; }
+  .cmt-del {
+    position: absolute; top: 6px; right: 8px; background: none; border: none;
+    color: var(--text-sub); font-size: 14px;
+  }
+  .cmt-form { display: flex; gap: 6px; margin-top: 8px; }
+  .cmt-form input {
+    flex: 1; border: 1px solid var(--line); border-radius: 18px;
+    padding: 7px 12px; font-size: 13px; outline: none; background: #fff;
+  }
+  .cmt-form input:focus { border-color: var(--pink); }
+  .cmt-form button {
+    background: var(--pink); color: #fff; border: none; border-radius: 18px;
+    padding: 7px 14px; font-size: 13px; flex-shrink: 0;
+  }
+  .who-select { margin-top: 6px; font-size: 12px; color: var(--text-sub); }
+  .who-select select {
+    border: 1px solid var(--line); border-radius: 12px; padding: 3px 8px;
+    font-size: 12px; margin-left: 4px; outline: none;
+  }
+  /* 底部按钮 */
+  .fab {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--pink), var(--pink-dark));
+    color: #fff; border: none; border-radius: 28px;
+    padding: 14px 32px; font-size: 16px; font-weight: 600;
+    box-shadow: 0 6px 20px rgba(232,77,112,.4);
+    z-index: 60; display: flex; align-items: center; gap: 6px;
+  }
+  /* 弹窗 */
+  .mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100;
+    display: none; align-items: flex-end;
+  }
+  .mask.show { display: flex; }
+  .sheet {
+    background: #fff; width: 100%; border-radius: 20px 20px 0 0;
+    padding: 20px 18px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    max-height: 85vh; overflow-y: auto;
+  }
+  .sheet h2 { font-size: 17px; margin-bottom: 14px; }
+  .field { margin-bottom: 14px; }
+  .field label { font-size: 13px; color: var(--text-sub); display: block; margin-bottom: 6px; }
+  .field input, .field textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px; font-size: 14px; outline: none; font-family: inherit;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--pink); }
+  .uploader {
+    border: 2px dashed var(--pink); border-radius: 12px; padding: 20px;
+    text-align: center; color: var(--pink-dark); cursor: pointer; background: var(--pink-light);
+  }
+  .uploader.has-img { padding: 8px; }
+  .uploader img { max-width: 100%; max-height: 160px; border-radius: 8px; }
+  .sheet-btns { display: flex; gap: 10px; margin-top: 6px; }
+  .btn-cancel, .btn-save {
+    flex: 1; border: none; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600;
+  }
+  .btn-cancel { background: var(--bg); color: var(--text-sub); }
+  .btn-save { background: var(--pink); color: #fff; }
+  .hint-bar {
+    background: #fff8e1; color: #b26a00; font-size: 12px; padding: 10px 14px;
+    line-height: 1.6; margin-bottom: 12px;
+  }
+  .hint-bar b { color: #e84d70; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🎁 我们的礼物清单</h1>
+  <p>一起挑礼物 · 传截图 · 互相批注</p>
+  <div class="top-actions">
+    <button class="btn-ghost" onclick="exportData()">⬇ 导出备份</button>
+    <button class="btn-ghost" onclick="document.getElementById('importFile').click()">⬆ 导入恢复</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="hint-bar" id="hintBar"></div>
+
+<div class="list" id="list"></div>
+
+<button class="fab" onclick="openSheet()">＋ 添加礼物</button>
+
+<!-- 添加/编辑弹窗 -->
+<div class="mask" id="mask" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <h2 id="sheetTitle">添加礼物</h2>
+    <div class="field">
+      <label>礼物截图</label>
+      <div class="uploader" id="uploader" onclick="document.getElementById('imgInput').click()">
+        📷 点击上传截图
+      </div>
+      <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="handleImg(event)">
+    </div>
+    <div class="field">
+      <label>礼物名称</label>
+      <input type="text" id="fName" placeholder="比如：某品牌吹风机">
+    </div>
+    <div class="field">
+      <label>价格</label>
+      <input type="text" id="fPrice" placeholder="选填，如 299">
+    </div>
+    <div class="field">
+      <label>商品链接</label>
+      <input type="text" id="fLink" placeholder="选填，粘贴商品网址">
+    </div>
+    <div class="field">
+      <label>状态</label>
+      <select id="fStatus" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;outline:none">
+        <option value="0">🤔 待考虑</option>
+        <option value="1">⭐ 心仪</option>
+        <option value="2">✅ 已购买</option>
+        <option value="3">🙅 不合适</option>
+      </select>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="closeSheet()">取消</button>
+      <button class="btn-save" onclick="saveItem()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATUS = ['🤔 待考虑','⭐ 心仪','✅ 已购买','🙅 不合适'];
+const STORE_KEY = 'gift_list_data_v1';
+const ME_KEY = 'gift_list_me';
+
+let items = [];
+let editingId = null;
+let pendingImg = null; // base64
+
+// 初始化
+function init() {
+  load();
+  if (!localStorage.getItem(ME_KEY)) {
+    const name = prompt('先告诉我你是谁？这样批注时别人知道是谁说的～', '') || '我';
+    localStorage.setItem(ME_KEY, name.slice(0, 10));
+  }
+  render();
 }
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    items = raw ? JSON.parse(raw) : [];
+  } catch(e) { items = []; }
+}
+
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(items));
+}
+
+function whoami() {
+  return localStorage.getItem(ME_KEY) || '我';
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function timeStr(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// 渲染统计
+function renderStats() {
+  const total = items.length;
+  const bought = items.filter(i => i.status == 2).length;
+  const liked = items.filter(i => i.status == 1).length;
+  const cmtCount = items.reduce((s,i) => s + (i.comments||[]).length, 0);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">${total}</div><div class="lbl">全部礼物</div></div>
+    <div class="stat"><div class="num">${liked}</div><div class="lbl">心仪</div></div>
+    <div class="stat"><div class="num">${bought}</div><div class="lbl">已购买</div></div>
+    <div class="stat"><div class="num">${cmtCount}</div><div class="lbl">批注</div></div>
+  `;
+}
+
+// 渲染列表
+function render() {
+  renderStats();
+  const list = document.getElementById('list');
+  if (items.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="big">🎀</div>清单还是空的<br>点右下角「添加礼物」开始吧<br><br><small>截图 + 想法，两个人一起挑</small></div>`;
+    updateHint('新清单');
+    return;
+  }
+  list.innerHTML = items.map(it => `
+    <div class="card" data-id="${it.id}">
+      <button class="del-btn" onclick="deleteItem(${it.id})">×</button>
+      <div class="card-head">
+        ${it.img ? `<img class="thumb" src="${it.img}" onclick="previewImg('${it.img}')">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:26px">🎁</div>`}
+        <div class="card-info">
+          <div class="card-name">${escapeHtml(it.name)}</div>
+          ${it.link ? `<div class="card-link" onclick="copyLink('${escapeHtml(it.link)}')">🔗 ${escapeHtml(it.link)}</div>` : ''}
+          <div class="badges">
+            <button class="badge status-${it.status}" onclick="cycleStatus(${it.id})">${STATUS[it.status]}</button>
+          </div>
+          ${it.price ? `<div class="price-tag">💰 ${escapeHtml(it.price)}</div>` : ''}
+        </div>
+      </div>
+      <div class="comments">
+        <div class="comments-title">💬 批注 ${(it.comments||[]).length}</div>
+        ${(it.comments||[]).map((c,idx) => `
+          <div class="cmt">
+            <button class="cmt-del" onclick="delComment(${it.id},${idx})">×</button>
+            <span class="cmt-who">${escapeHtml(c.who)}</span>
+            <span class="cmt-time">${timeStr(c.time)}</span>
+            <div class="cmt-body">${escapeHtml(c.text)}</div>
+          </div>
+        `).join('')}
+        <div class="cmt-form">
+          <input type="text" id="cmt-${it.id}" placeholder="写点想法…" onkeydown="if(event.key==='Enter')addComment(${it.id})">
+          <button onclick="addComment(${it.id})">发送</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  updateHint('hasItems');
+}
+
+function updateHint(mode) {
+  const bar = document.getElementById('hintBar');
+  if (mode === 'newList') {
+    bar.innerHTML = `📌 <b>共享提示：</b>数据存在本机浏览器。想两人共用同一份，把这份 HTML 文件放到任一静态托管（如 GitHub Pages / Vercel），两人打开同一网址即可。`;
+    bar.style.display = 'block';
+  } else if (mode === 'hasItems') {
+    bar.innerHTML = `📌 我是「${escapeHtml(whoami())}」。点卡片右下角写批注，点状态标签可切换「心仪/已买」。`;
+    bar.style.display = 'block';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+// 弹窗
+function openSheet(id) {
+  editingId = id || null;
+  document.getElementById('sheetTitle').textContent = id ? '编辑礼物' : '添加礼物';
+  const it = id ? items.find(i => i.id === id) : null;
+  document.getElementById('fName').value = it ? it.name : '';
+  document.getElementById('fPrice').value = it ? it.price : '';
+  document.getElementById('fLink').value = it ? it.link : '';
+  document.getElementById('fStatus').value = it ? it.status : 0;
+  pendingImg = it ? it.img : null;
+  document.getElementById('uploader').innerHTML = it && it.img
+    ? `<img src="${it.img}">` : '📷 点击上传截图';
+  document.getElementById('uploader').className = it && it.img ? 'uploader has-img' : 'uploader';
+  document.getElementById('mask').classList.add('show');
+}
+
+function closeSheet() {
+  document.getElementById('mask').classList.remove('show');
+  document.getElementById('imgInput').value = '';
+  pendingImg = null;
+}
+
+function handleImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingImg = ev.target.result;
+    document.getElementById('uploader').innerHTML = `<img src="${pendingImg}">`;
+    document.getElementById('uploader').className = 'uploader has-img';
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveItem() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { alert('填个礼物名称吧～'); return; }
+  if (editingId) {
+    const it = items.find(i => i.id === editingId);
+    it.name = name;
+    it.price = document.getElementById('fPrice').value.trim();
+    it.link = document.getElementById('fLink').value.trim();
+    it.status = Number(document.getElementById('fStatus').value);
+    it.img = pendingImg || it.img;
+  } else {
+    items.push({
+      id: Date.now(),
+      name,
+      price: document.getElementById('fPrice').value.trim(),
+      link: document.getElementById('fLink').value.trim(),
+      status: Number(document.getElementById('fStatus').value),
+      img: pendingImg,
+      comments: []
+    });
+  }
+  save();
+  closeSheet();
+  render();
+}
+
+function deleteItem(id) {
+  const it = items.find(i => i.id === id);
+  if (!confirm(`删除「${it.name}」？`)) return;
+  items = items.filter(i => i.id !== id);
+  save();
+  render();
+}
+
+function cycleStatus(id) {
+  const it = items.find(i => i.id === id);
+  it.status = (it.status + 1) % 4;
+  save();
+  render();
+}
+
+function addComment(id) {
+  const input = document.getElementById('cmt-' + id);
+  const text = input.value.trim();
+  if (!text) return;
+  const it = items.find(i => i.id === id);
+  it.comments = it.comments || [];
+  it.comments.push({ who: whoami(), text, time: Date.now() });
+  input.value = '';
+  save();
+  render();
+}
+
+function delComment(id, idx) {
+  const it = items.find(i => i.id === id);
+  if (!confirm('删除这条批注？')) return;
+  it.comments.splice(idx, 1);
+  save();
+  render();
+}
+
+function copyLink(link) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(link).then(() => alert('链接已复制，去粘贴吧～'));
+  } else {
+    prompt('复制下面的链接：', link);
+  }
+}
+
+function previewImg(src) {
+  const w = window.open('');
+  w.document.write(`<title>礼物截图</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100%"></body>`);
+}
+
+// 导出/导入（用来在两人间传数据）
+function exportData() {
+  const data = JSON.stringify({ items, from: whoami(), time: new Date().toLocaleString() }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '礼物清单备份.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  alert('已导出！把这份文件发给对方，对方点「导入恢复」就能拿到你的清单。');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data.items)) throw 0;
+      if (confirm(`导入后现有清单会被覆盖，确认吗？\n（来自：${data.from||'未知'}）`)) {
+        items = data.items;
+        save();
+        render();
+        alert('导入成功！');
+      }
+    } catch(err) {
+      alert('文件格式不对，不是有效的备份文件。');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// 点击卡片区域进入编辑（避免和批注输入冲突）
+document.getElementById('list').addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (!card) return;
+  // 忽略点击批注区、状态按钮、删除按钮、链接
+  if (e.target.closest('.comments') || e.target.closest('.del-btn') || e.target.closest('.badge') || e.target.closest('.card-link')) return;
+  openSheet(Number(card.dataset.id));
+});
+
+init();
+</script>
+</body>
+</html>
