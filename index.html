@@ -1,11 +1,91 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>Gift Sync</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>礼物清单 · Gift Sync</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 20px; }
+  .bar { display: flex; gap: 8px; margin: 16px 0; }
+  input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+  button { padding: 8px 12px; border: none; border-radius: 8px; background: #111; color: #fff; cursor: pointer; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; align-items: center; justify-content: space-between; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
+  .note { font-size: 12px; color: #888; }
+  .del { background: #eee; color: #333; padding: 4px 8px; border-radius: 6px; }
+</style>
 </head>
 <body>
-  <h1>Gift Sync</h1>
-  <p>Pages Functions 已就绪</p >
+
+<h1>🎁 礼物清单</h1>
+<div class="note">房间：<span id="room"></span>（把当前网址发给对方，就能一起看）</div>
+
+<div class="bar">
+  <input id="gift" placeholder="写个礼物，比如：Switch 游戏卡" />
+  <button onclick="addGift()">添加</button>
+</div>
+
+<ul id="list"></ul>
+
+<script>
+  // 1. 取房间号（没有就默认 demo）
+  const params = new URLSearchParams(location.search);
+  let room = params.get("room") || "demo";
+  document.getElementById("room").innerText = room;
+
+  // 2. 拉列表
+  async function load() {
+    try {
+      const res = await fetch(`/api/list/${room}`);
+      const data = await res.json();
+      const list = data.list || [];
+      const box = document.getElementById("list");
+      box.innerHTML = "";
+      list.forEach(item => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <span>${escapeHtml(item.name)}</span>
+          <button class="del" onclick="delGift('${item.id}')">删除</button>
+        `;
+        box.appendChild(li);
+      });
+    } catch (e) {
+      console.warn("轮询失败", e);
+    }
+  }
+
+  // 3. 添加礼物
+  async function addGift() {
+    const input = document.getElementById("gift");
+    const name = input.value.trim();
+    if (!name) return;
+    await fetch(`/api/save/${room}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+    input.value = "";
+    load();
+  }
+
+  // 4. 删除礼物
+  async function delGift(id) {
+    await fetch(`/api/del/${room}/${id}`, { method: "POST" });
+    load();
+  }
+
+  // 5. 防 XSS
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  // 6. 每 3 秒轮询（两人同步）
+  load();
+  setInterval(load, 3000);
+</script>
+
 </body>
 </html>
